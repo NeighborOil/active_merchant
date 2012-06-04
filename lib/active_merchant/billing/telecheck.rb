@@ -31,7 +31,7 @@ module ActiveMerchant #:nodoc:
       
       def validate
         [:first_name, :last_name, :address1, :city, :state, :zip, :phone, :email,
-         :routing, :accountr, :bankname, :bankstate, :dl, :dlstate].each do |attr|
+         :routing, :account, :bankname, :bankstate, :dl, :dlstate].each do |attr|
           errors.add(attr, "cannot be empty") if self.send(attr).blank?
         end
 
