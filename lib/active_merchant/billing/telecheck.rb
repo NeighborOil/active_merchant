@@ -9,29 +9,11 @@ module ActiveMerchant #:nodoc:
     class Telecheck
       include Validateable
       
-      attr_accessor :first_name, :last_name, :address1, :address2, :city, :state, :zip, :phone, :email,
-                    :routing, :account, :bankname, :bankstate, :dl, :dlstate, :void,
-                    :accounttype, :ssn, :checknumber, :void
-      
-      # Used for Canadian bank accounts
-      attr_accessor :institution_number, :transit_number
-      
-      def name
-        @name ||= "#{@first_name} #{@last_name}".strip
-      end
-      
-      def name=(value)
-        return if value.blank?
-
-        @name = value
-        segments = value.split(' ')
-        @last_name = segments.pop
-        @first_name = segments.join(' ')
-      end
+      attr_accessor :routing, :account, :bankname, :bankstate, :dl, :dlstate, :void,
+                    :accounttype, :ssn, :checknumber, :void, :number
       
       def validate
-        [:first_name, :last_name, :address1, :city, :state, :zip, :phone, :email,
-         :routing, :account, :bankname, :bankstate, :dl, :dlstate].each do |attr|
+        [:routing, :account, :bankname, :bankstate, :dl, :dlstate].each do |attr|
           errors.add(attr, "cannot be empty") if self.send(attr).blank?
         end
 
@@ -41,8 +23,8 @@ module ActiveMerchant #:nodoc:
 
         errors.add(:routing, "is invalid") unless valid_routing_number?
         
-        errors.add(:account_type, "must be personal or business, checking or savings") if
-            !account_type.blank? && !%w[pc ps bc bs].include?(account_type.to_s)
+        errors.add(:accounttype, "must be personal or business, checking or savings") if
+            !accounttype.blank? && !%w[pc ps bc bs].include?(accounttype.to_s)
       end
       
       def type
@@ -54,7 +36,7 @@ module ActiveMerchant #:nodoc:
       #   (3(d1 + d4 + d7) + 7(d2 + d5 + d8) + 1(d3 + d6 + d9))mod 10 = 0
       # See http://en.wikipedia.org/wiki/Routing_transit_number#Internal_checksums
       def valid_routing_number?
-        d = routing_number.to_s.split('').map(&:to_i).select { |d| (0..9).include?(d) }
+        d = routing.to_s.split('').map(&:to_i).select { |d| (0..9).include?(d) }
         case d.size
           when 9 then
             checksum = ((3 * (d[0] + d[3] + d[6])) +
