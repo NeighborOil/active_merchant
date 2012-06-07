@@ -254,8 +254,10 @@ module ActiveMerchant #:nodoc:
       
       private
       # Commit the transaction by posting the XML file to the FirstData server
-      def commit(money, creditcard, options = {})
-        response = parse(ssl_post(test? ? TEST_URL : LIVE_URL, post_data(money, creditcard, options)))
+      def commit(money, payment_method, options = {})
+        xml_post_data = post_data(money, payment_method, options)
+        Rails.logger.debug xml_post_data
+        response = parse(ssl_post(test? ? TEST_URL : LIVE_URL, xml_post_data))
         
         Response.new(successful?(response), response[:message], response, 
           :test => test?,
@@ -270,8 +272,8 @@ module ActiveMerchant #:nodoc:
       end
       
       # Build the XML file
-      def post_data(money, creditcard, options)
-        params = parameters(money, creditcard, options)
+      def post_data(money, payment_method, options)
+        params = parameters(money, payment_method, options)
         
         xml = REXML::Document.new
         order = xml.add_element("order")
@@ -293,7 +295,7 @@ module ActiveMerchant #:nodoc:
           # FirstData doesn't understand empty elements:
           order.delete(elem) if elem.size == 0
         end
-        return xml.to_s
+        xml.to_s
       end
 
       # adds FirstData's Items entity to the XML.  Called from post_data
@@ -317,8 +319,11 @@ module ActiveMerchant #:nodoc:
 
       # Set up the parameters hash just once so we don't have to do it
       # for every action. 
-      def parameters(money, creditcard, options = {})
-        
+      def parameters(money, payment_method, options = {})
+        if payment_method
+          method_type = (payment_method.is_a?(ActiveMerchant::Billing::CreditCard) ? 'credit_card' : 'telecheck')
+        end
+
         params = {
           :payment => {
             :subtotal => amount(options[:subtotal]),
@@ -350,40 +355,43 @@ module ActiveMerchant #:nodoc:
             :periodicity => options[:periodicity], 
             :comments => options[:comments]
           },
-          :telecheck => {
-            :routing => options[:telecheck_routing],
-            :account => options[:telecheck_account],
-            :checknumber => options[:telecheck_checknumber],
-            :bankname => options[:telecheck_bankname],
-            :bankstate => options[:telecheck_bankstate],
-            :dl => options[:telecheck_dl],
-            :dlstate => options[:telecheck_dlstate],
-            :void => options[:telecheck_void],
-            :accounttype => options[:telecheck_accounttype],
-            :ssn => options[:telecheck_ssn],
-          }
         }
-      
-        if creditcard
+
+        if payment_method && (method_type == 'credit_card')
           params[:creditcard] = {
-            :cardnumber => creditcard.number,
-            :cardexpmonth => creditcard.month,
-            :cardexpyear => format_creditcard_expiry_year(creditcard.year),
+            :cardnumber => payment_method.number,
+            :cardexpmonth => payment_method.month,
+            :cardexpyear => format_creditcard_expiry_year(payment_method.year),
             :track => nil
           }
           
-          if creditcard.verification_value?
-            params[:creditcard][:cvmvalue] = creditcard.verification_value
+          if payment_method.verification_value?
+            params[:creditcard][:cvmvalue] = payment_method.verification_value
             params[:creditcard][:cvmindicator] = 'provided'
           else
             params[:creditcard][:cvmindicator] = 'not_provided'
-          end          
+          end
+        end
+
+        if payment_method && (method_type == 'telecheck')
+          params[:telecheck] = {
+            :routing => payment_method.routing,
+            :account => payment_method.account,
+            :checknumber => payment_method.checknumber,
+            :bankname => payment_method.bankname,
+            :bankstate => payment_method.bankstate,
+            :dl => payment_method.dl,
+            :dlstate => payment_method.dlstate,
+            :void => payment_method.void,
+            :accounttype => payment_method.accounttype,
+            :ssn => payment_method.ssn,
+          }
         end
         
         if billing_address = options[:billing_address] || options[:address]          
           
           params[:billing] = {}        
-          params[:billing][:name]      = billing_address[:name] || (creditcard ? creditcard.name : nil)
+          params[:billing][:name]      = billing_address[:name] || (payment_method ? payment_method.name : nil)
           params[:billing][:address1]  = billing_address[:address1] unless billing_address[:address1].blank?
           params[:billing][:address2]  = billing_address[:address2] unless billing_address[:address2].blank?
           params[:billing][:city]      = billing_address[:city]     unless billing_address[:city].blank?
@@ -398,7 +406,7 @@ module ActiveMerchant #:nodoc:
         if shipping_address = options[:shipping_address] 
 
           params[:shipping] = {}
-          params[:shipping][:name]      = shipping_address[:name] || creditcard ? creditcard.name : nil
+          params[:shipping][:name]      = shipping_address[:name] || payment_method ? payment_method.name : nil
           params[:shipping][:address1]  = shipping_address[:address1] unless shipping_address[:address1].blank?
           params[:shipping][:address2]  = shipping_address[:address2] unless shipping_address[:address2].blank?
           params[:shipping][:city]      = shipping_address[:city]     unless shipping_address[:city].blank?
@@ -408,8 +416,8 @@ module ActiveMerchant #:nodoc:
         end        
 
         params[:items] = options[:line_items] if options[:line_items]
-        
-        return params
+        Rails.logger.debug "Params: #{params}"
+        params
       end
         
       def parse(xml)
