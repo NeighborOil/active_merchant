@@ -51,7 +51,7 @@ module ActiveMerchant #:nodoc:
       end
 
       def valid_state_codes
-        %w[AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MN MS MO MT NE NV NH NJ NM NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WI WV WY]
+        %w[AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MN MS MO MT NE NV NH NJ NM NC ND NY OH OK OR PA RI SC SD TN TX UT VT VA WA WI WV WY]
       end
     end
   end
