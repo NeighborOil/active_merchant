@@ -130,6 +130,7 @@ module ActiveMerchant #:nodoc:
       cattr_accessor :pem_file
       
       TEST_URL  = 'https://staging.linkpt.net:1129/'
+#      TEST_URL  = 'https://secure.linkpt.net:1129/'
       LIVE_URL  = 'https://secure.linkpt.net:1129/'
       
       # We don't have the certificate to verify FirstData
@@ -256,8 +257,17 @@ module ActiveMerchant #:nodoc:
       # Commit the transaction by posting the XML file to the FirstData server
       def commit(money, payment_method, options = {})
         xml_post_data = post_data(money, payment_method, options)
-        Rails.logger.debug xml_post_data
-        response = parse(ssl_post(test? ? TEST_URL : LIVE_URL, xml_post_data))
+        if test?
+          Rails.logger.debug ">>> Prepared XML as follows in #{test? ? "test" : "LIVE"} mode to URL #{test? ? TEST_URL : LIVE_URL}"
+          Rails.logger.debug xml_post_data
+          Rails.logger.debug "<<< XML, sending ssl post >>>"
+        end
+        raw_response = ssl_post(test? ? TEST_URL : LIVE_URL, xml_post_data)
+        if test?
+          Rails.logger.debug "<<< ssl post complete, raw response is >>>"
+          Rails.logger.debug raw_response
+        end
+        response = parse(raw_response)
         
         Response.new(successful?(response), response[:message], response, 
           :test => test?,
@@ -320,9 +330,8 @@ module ActiveMerchant #:nodoc:
       # Set up the parameters hash just once so we don't have to do it
       # for every action. 
       def parameters(money, payment_method, options = {})
-        if payment_method
-          method_type = (payment_method.is_a?(ActiveMerchant::Billing::CreditCard) ? 'credit_card' : 'telecheck')
-        end
+        is_credit = payment_method.is_a?(ActiveMerchant::Billing::CreditCard)
+        is_telecheck = !is_credit
 
         params = {
           :payment => {
@@ -332,7 +341,9 @@ module ActiveMerchant #:nodoc:
             :shipping => amount(options[:shipping]),
             :chargetotal => amount(money)
           },
-          :transactiondetails => {
+          :transactiondetails => (is_telecheck ? {
+              :transactionorigin => "ECI"
+          } : {
             :transactionorigin => options[:transactionorigin] || "ECI",
             :oid => options[:order_id],
             :ponumber => options[:ponumber],
@@ -342,7 +353,7 @@ module ActiveMerchant #:nodoc:
             :reference_number => options[:reference_number],
             :recurring => options[:recurring] || "NO",  #DO NOT USE if you are using the periodic billing option. 
             :tdate => options[:tdate]
-          },
+          }),
           :orderoptions => {
             :ordertype => options[:ordertype],
             :result => @options[:result]
@@ -357,7 +368,7 @@ module ActiveMerchant #:nodoc:
           },
         }
 
-        if payment_method && (method_type == 'credit_card')
+        if payment_method && is_credit
           params[:creditcard] = {
             :cardnumber => payment_method.number,
             :cardexpmonth => payment_method.month,
@@ -373,7 +384,7 @@ module ActiveMerchant #:nodoc:
           end
         end
 
-        if payment_method && (method_type == 'telecheck')
+        if payment_method && is_telecheck
           params[:telecheck] = {
             :routing => payment_method.routing,
             :account => payment_method.account,
