@@ -278,7 +278,7 @@ module ActiveMerchant #:nodoc:
       end
       
       def successful?(response)
-        response[:approved] == "APPROVED"
+        response[:approved] == ("APPROVED" or "SUBMITTED")  # SUBMITTED is returned by Telecheck
       end
       
       # Build the XML file
