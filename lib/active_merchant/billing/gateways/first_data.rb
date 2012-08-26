@@ -129,8 +129,8 @@ module ActiveMerchant #:nodoc:
       # 
       cattr_accessor :pem_file
       
-      TEST_URL  = 'https://staging.linkpt.net:1129/'
-#      TEST_URL  = 'https://secure.linkpt.net:1129/'
+#      TEST_URL  = 'https://staging.linkpt.net:1129/'
+      TEST_URL  = 'https://secure.linkpt.net:1129/'  # Need to set this in order to test telecheck in non-production
       LIVE_URL  = 'https://secure.linkpt.net:1129/'
       
       # We don't have the certificate to verify FirstData
@@ -278,6 +278,7 @@ module ActiveMerchant #:nodoc:
       end
       
       def successful?(response)
+        Rails.logger.debug "Testing for successful?, response[:approved] is #{response[:approved]}, response[:approved] == (\"APPROVED\" or \"SUBMITTED\") is #{response[:approved] == ("APPROVED" or "SUBMITTED")}"
         response[:approved] == ("APPROVED" or "SUBMITTED")  # SUBMITTED is returned by Telecheck
       end
       
@@ -342,9 +343,9 @@ module ActiveMerchant #:nodoc:
             :chargetotal => amount(money)
           },
           :transactiondetails => (is_telecheck ? {
-              :transactionorigin => "ECI"
+              :transactionorigin => "MOTO"
           } : {
-            :transactionorigin => options[:transactionorigin] || "ECI",
+            :transactionorigin => options[:transactionorigin] || "MOTO",
             :oid => options[:order_id],
             :ponumber => options[:ponumber],
             :taxexempt => options[:taxexempt],
