@@ -278,8 +278,8 @@ module ActiveMerchant #:nodoc:
       end
       
       def successful?(response)
-        Rails.logger.debug "Testing for successful?, response[:approved] is #{response[:approved]}, response[:approved] == (\"APPROVED\" or \"SUBMITTED\") is #{response[:approved] == ("APPROVED" or "SUBMITTED")}"
-        response[:approved] == ("APPROVED" or "SUBMITTED")  # SUBMITTED is returned by Telecheck
+        Rails.logger.debug "Testing for successful?, response[:approved] is #{response[:approved]}, response[:approved] == (\"APPROVED\" or \"SUBMITTED\") is #{(response[:approved] == "APPROVED" or response[:approved] == "SUBMITTED")}"
+        (response[:approved] == "APPROVED" or response[:approved] == "SUBMITTED")  # SUBMITTED is returned by Telecheck
       end
       
       # Build the XML file
@@ -343,9 +343,9 @@ module ActiveMerchant #:nodoc:
             :chargetotal => amount(money)
           },
           :transactiondetails => (is_telecheck ? {
-              :transactionorigin => "MOTO"
+              :transactionorigin => "ECI"
           } : {
-            :transactionorigin => options[:transactionorigin] || "MOTO",
+            :transactionorigin => options[:transactionorigin] || "ECI",
             :oid => options[:order_id],
             :ponumber => options[:ponumber],
             :taxexempt => options[:taxexempt],
